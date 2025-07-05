@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Question Manager</title>
+  <style>
+    body { font-family: "Segoe UI", sans-serif; padding: 20px; background: #f0f2f5; }
+    table { border-collapse: collapse; width: 100%; background: white; }
+    table, th, td { border: 1px solid #ddd; }
+    th, td { padding: 10px; }
+    button { margin: 5px; }
+    .question-form { margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <h1>Manage Questions</h1>
+  <table id="questionTable">
+    <thead>
+      <tr>
+        <th>Question</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- JS will populate here -->
+    </tbody>
+  </table>
+
+  <div class="question-form">
+    <h2>Add New Question</h2>
+    <form id="addQuestionForm">
+      <label>Question:
+        <input name="text" required />
+      </label>
+      <button type="submit">Add</button>
+    </form>
+  </div>
+  <p><a href="/admin">Back to Admin Panel</a></p>
+  <script>
+    async function loadQuestions() {
+      const res = await fetch('/api/questions');
+      const questions = await res.json();
+      const tbody = document.querySelector("#questionTable tbody");
+      tbody.innerHTML = "";
+      questions.forEach(q => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${q.text}</td>
+          <td>
+            <button onclick="deleteQuestion('${q.id}')">Delete</button>
+            <button onclick="editQuestion('${q.id}', '${q.text.replace(/'/g,"\\'")}')">Edit</button>
+          </td>`;
+        tbody.appendChild(row);
+      });
+    }
+
+    async function deleteQuestion(id) {
+      await fetch(`/api/questions/${id}`, { method: "DELETE" });
+      loadQuestions();
+    }
+
+    function editQuestion(id, text) {
+      const newText = prompt("Edit question:", text);
+      if (newText) {
+        fetch(`/api/questions/${id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: newText })
+        }).then(loadQuestions);
+      }
+    }
+
+    document.getElementById("addQuestionForm").addEventListener("submit", async e => {
+      e.preventDefault();
+      const text = e.target.text.value;
+      await fetch("/api/questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text })
+      });
+      e.target.reset();
+      loadQuestions();
+    });
+
+    loadQuestions();
+  </script>
+</body>
+</html>
