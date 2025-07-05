@@ -5,121 +5,170 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>MindMirror Admin Panel</title>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    body {
-      display: flex;
-      font-family: "Segoe UI", sans-serif;
-      background: #f0f2f5;
-      color: #333;
-      height: 100vh;
-    }
+    * { box-sizing: border-box; margin:0; padding:0; }
+    body { font-family: Arial, sans-serif; background:#f0f2f5; }
     .sidebar {
-      width: 240px;
-      background: #1e2a38;
-      color: #fff;
-      display: flex;
-      flex-direction: column;
-      position: fixed;
-      height: 100vh;
-      box-shadow: 2px 0 8px rgba(0,0,0,0.1);
-      transition: transform 0.3s ease;
-      z-index: 10;
-    }
-    .sidebar.collapsed {
-      transform: translateX(-100%);
+      width: 240px; background: #1e2a38; color: white;
+      position: fixed; top:0; left:0; bottom:0;
+      display: flex; flex-direction: column;
     }
     .sidebar .logo {
-      font-size: 1.5em;
-      font-weight: bold;
-      text-align: center;
-      padding: 20px;
-      border-bottom: 1px solid rgba(255,255,255,0.1);
-      background: #18202b;
+      font-weight: bold; padding:20px; text-align:center; background:#18202b;
     }
     .sidebar nav a {
-      display: flex;
-      align-items: center;
-      padding: 15px 20px;
-      text-decoration: none;
-      color: #fff;
-      transition: background 0.3s;
+      padding:15px 20px; color:white; text-decoration:none; display:block;
     }
-    .sidebar nav a:hover {
-      background: rgba(255,255,255,0.1);
-    }
-    .sidebar nav a i {
-      margin-right: 10px;
-    }
+    .sidebar nav a:hover { background:rgba(255,255,255,0.1); }
     .main {
-      margin-left: 240px;
-      flex: 1;
-      padding: 30px;
-      overflow-y: auto;
-      transition: margin-left 0.3s ease;
+      margin-left:240px; padding:20px;
     }
-    .main h2 {
-      color: #4a90e2;
-      margin-bottom: 15px;
+    .button {
+      background:#4a90e2; color:white; border:none; padding:10px 15px;
+      margin:5px; cursor:pointer; border-radius:5px;
     }
-    .main p {
-      font-size: 1.1em;
-      line-height: 1.6;
-    }
-    .hamburger {
-      display: none;
-      position: fixed;
-      top: 15px;
-      right: 15px;
-      background: #4a90e2;
-      color: white;
-      border: none;
-      border-radius: 5px;
-      font-size: 1.5em;
-      padding: 8px 12px;
-      cursor: pointer;
-      z-index: 20;
-    }
-    @media (max-width: 768px) {
-      .sidebar {
-        transform: translateX(-100%);
-      }
-      .sidebar.active {
-        transform: translateX(0);
-      }
-      .main {
-        margin-left: 0;
-      }
-      .hamburger {
-        display: block;
-      }
-    }
+    table { width:100%; border-collapse: collapse; margin-top:20px; }
+    th,td { border:1px solid #ccc; padding:10px; }
+    th { background:#eee; }
+    .hidden { display:none; }
+    input[type="text"] { width: 100%; padding: 5px; margin:5px 0; }
   </style>
-  <script src="https://unpkg.com/@phosphor-icons/web"></script>
 </head>
 <body>
-  <button class="hamburger" onclick="toggleSidebar()">☰</button>
-  <div class="sidebar" id="sidebar">
+  <div class="sidebar">
     <div class="logo">MindMirror Admin</div>
     <nav>
-      <a href="#"><i class="ph ph-gauge"></i> Dashboard</a>
-      <a href="#"><i class="ph ph-file-text"></i> Reports</a>
-      <a href="/admin/questions"><i class="ph ph-list-checks"></i> Questions</a>
-      <a href="#"><i class="ph ph-users"></i> Users</a>
-      <a href="#"><i class="ph ph-eye"></i> Preview Test</a>
+      <a href="#" onclick="loadQuestionManager()">Questions</a>
+      <a href="#">Dashboard</a>
+      <a href="#">Reports</a>
+      <a href="#">Users</a>
+      <a href="#">Preview Test</a>
     </nav>
   </div>
-  <div class="main">
+  <div class="main" id="main-content">
     <h2>Welcome, Admin</h2>
-    <p>Use the navigation on the left to manage your MindMirror app. This is your admin control panel.</p>
+    <p>Select an option from the sidebar to get started.</p>
   </div>
   <script>
-    function toggleSidebar() {
-      const sidebar = document.getElementById('sidebar');
-      sidebar.classList.toggle('active');
+    function loadQuestionManager(){
+      const content = document.getElementById("main-content");
+      content.innerHTML = `
+        <h2>Question Manager</h2>
+        <button class="button" onclick="showAddForm()">Add Question</button>
+        <button class="button" onclick="deleteSelected()">Delete Selected</button>
+        <table id="questions-table">
+          <thead>
+            <tr>
+              <th><input type="checkbox" id="select-all" onchange="toggleSelectAll(this)"></th>
+              <th>Question</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <div id="question-form" class="hidden">
+          <h3 id="form-title">Add Question</h3>
+          <input type="hidden" id="qid" />
+          <label>Question:</label>
+          <input type="text" id="qtext" />
+          <div>
+            <label>Options:</label>
+            <input type="text" id="opt1" value="Strongly Agree" />
+            <input type="text" id="opt2" value="Agree" />
+            <input type="text" id="opt3" value="Neutral" />
+            <input type="text" id="opt4" value="Disagree" />
+            <input type="text" id="opt5" value="Strongly Disagree" />
+          </div>
+          <button class="button" onclick="saveQuestion()">Save</button>
+          <button class="button" onclick="hideForm()">Cancel</button>
+        </div>
+      `;
+      loadQuestions();
+    }
+
+    async function loadQuestions(){
+      const res = await fetch('/api/questions');
+      const data = await res.json();
+      const tbody = document.querySelector("#questions-table tbody");
+      tbody.innerHTML = data.map(q=>`
+        <tr>
+          <td><input type="checkbox" class="select-q" value="${q.id}"></td>
+          <td>${q.text}</td>
+          <td><button onclick="editQuestion('${q.id}')">Edit</button></td>
+        </tr>
+      `).join("");
+    }
+
+    function toggleSelectAll(master){
+      document.querySelectorAll(".select-q").forEach(cb => cb.checked = master.checked);
+    }
+
+    function showAddForm(){
+      document.getElementById("question-form").classList.remove("hidden");
+      document.getElementById("form-title").innerText = "Add Question";
+      document.getElementById("qid").value = "";
+      document.getElementById("qtext").value = "";
+      document.getElementById("opt1").value = "Strongly Agree";
+      document.getElementById("opt2").value = "Agree";
+      document.getElementById("opt3").value = "Neutral";
+      document.getElementById("opt4").value = "Disagree";
+      document.getElementById("opt5").value = "Strongly Disagree";
+    }
+
+    function hideForm(){
+      document.getElementById("question-form").classList.add("hidden");
+    }
+
+    async function saveQuestion(){
+      const id = document.getElementById("qid").value;
+      const text = document.getElementById("qtext").value;
+      const options = [
+        document.getElementById("opt1").value,
+        document.getElementById("opt2").value,
+        document.getElementById("opt3").value,
+        document.getElementById("opt4").value,
+        document.getElementById("opt5").value
+      ];
+      if(id){
+        await fetch('/api/questions/update', {
+          method:"POST",headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({id,text,options})
+        });
+      } else {
+        await fetch('/api/questions/add', {
+          method:"POST",headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({text,options})
+        });
+      }
+      hideForm();
+      loadQuestions();
+    }
+
+    async function editQuestion(id){
+      const res = await fetch('/api/questions');
+      const data = await res.json();
+      const q = data.find(x=>x.id===id);
+      if(q){
+        document.getElementById("qid").value = q.id;
+        document.getElementById("qtext").value = q.text;
+        document.getElementById("opt1").value = q.options[0]||"";
+        document.getElementById("opt2").value = q.options[1]||"";
+        document.getElementById("opt3").value = q.options[2]||"";
+        document.getElementById("opt4").value = q.options[3]||"";
+        document.getElementById("opt5").value = q.options[4]||"";
+        document.getElementById("form-title").innerText = "Edit Question";
+        document.getElementById("question-form").classList.remove("hidden");
+      }
+    }
+
+    async function deleteSelected(){
+      const ids = Array.from(document.querySelectorAll(".select-q:checked")).map(cb => cb.value);
+      if(ids.length===0) return alert("Nothing selected");
+      if(!confirm("Delete selected?")) return;
+      await fetch('/api/questions/delete', {
+        method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({ids})
+      });
+      loadQuestions();
     }
   </script>
 </body>
