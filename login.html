@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MindMirror - Login / Signup</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: "Segoe UI", sans-serif;
+      background: #f5f7fa;
+      color: #333;
+    }
+    .container {
+      max-width: 400px;
+      margin: 80px auto;
+      padding: 30px;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    h2 {
+      text-align: center;
+      color: #4a90e2;
+      margin-bottom: 20px;
+    }
+    .tabs {
+      display: flex;
+      justify-content: space-around;
+      margin-bottom: 20px;
+    }
+    .tab {
+      flex: 1;
+      text-align: center;
+      padding: 10px;
+      cursor: pointer;
+      background: #e0e0e0;
+      border-radius: 8px 8px 0 0;
+    }
+    .tab.active {
+      background: #4a90e2;
+      color: white;
+    }
+    form {
+      display: none;
+      flex-direction: column;
+    }
+    form.active {
+      display: flex;
+      flex-direction: column;
+    }
+    label {
+      margin-top: 15px;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    input[type="text"],
+    input[type="email"],
+    input[type="password"] {
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      font-size: 1em;
+    }
+    .checkbox {
+      display: flex;
+      align-items: center;
+      margin-top: 10px;
+    }
+    .checkbox input {
+      margin-right: 10px;
+    }
+    button {
+      margin-top: 20px;
+      background: #4a90e2;
+      color: white;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1.1em;
+    }
+    button:hover {
+      background: #357ab8;
+    }
+    .recaptcha-note {
+      margin-top: 15px;
+      font-size: 0.9em;
+      color: #888;
+      text-align: center;
+    }
+  </style>
+  <script src="https://www.google.com/recaptcha/api.js?render=6Leg9HgrAAAAAJcPSWr8sNrobVZZpxwWjuRjpEy-"></script>
+  <script>
+    function switchTab(tabName) {
+      document.getElementById('loginTab').classList.remove('active');
+      document.getElementById('signupTab').classList.remove('active');
+      document.getElementById('loginForm').classList.remove('active');
+      document.getElementById('signupForm').classList.remove('active');
+      if (tabName === 'login') {
+        document.getElementById('loginTab').classList.add('active');
+        document.getElementById('loginForm').classList.add('active');
+      } else {
+        document.getElementById('signupTab').classList.add('active');
+        document.getElementById('signupForm').classList.add('active');
+      }
+    }
+    function onLoginSubmit(event) {
+      event.preventDefault();
+      grecaptcha.ready(function() {
+        grecaptcha.execute('6Leg9HgrAAAAAJcPSWr8sNrobVZZpxwWjuRjpEy-', {action: 'login'}).then(function(token) {
+          const form = document.getElementById('loginForm');
+          const hiddenToken = document.createElement('input');
+          hiddenToken.type = 'hidden';
+          hiddenToken.name = 'token';
+          hiddenToken.value = token;
+          form.appendChild(hiddenToken);
+          form.submit();
+        });
+      });
+    }
+    function onSignupSubmit(event) {
+      event.preventDefault();
+      const termsChecked = document.getElementById('terms').checked;
+      const privacyChecked = document.getElementById('privacy').checked;
+      if (!termsChecked || !privacyChecked) {
+        alert('You must agree to the Terms and Conditions and Privacy Policy.');
+        return;
+      }
+      grecaptcha.ready(function() {
+        grecaptcha.execute('6Leg9HgrAAAAAJcPSWr8sNrobVZZpxwWjuRjpEy-', {action: 'signup'}).then(function(token) {
+          const form = document.getElementById('signupForm');
+          const hiddenToken = document.createElement('input');
+          hiddenToken.type = 'hidden';
+          hiddenToken.name = 'token';
+          hiddenToken.value = token;
+          form.appendChild(hiddenToken);
+          form.submit();
+        });
+      });
+    }
+    window.onload = () => switchTab('login');
+  </script>
+</head>
+<body>
+  <div class="container">
+    <h2>MindMirror</h2>
+    <div class="tabs">
+      <div id="loginTab" class="tab active" onclick="switchTab('login')">Login</div>
+      <div id="signupTab" class="tab" onclick="switchTab('signup')">Signup</div>
+    </div>
+    <form id="loginForm" onsubmit="onLoginSubmit(event)" method="POST" action="/login">
+      <label for="email">Email</label>
+      <input type="email" name="email" required />
+
+      <label for="password">Password</label>
+      <input type="password" name="password" required />
+
+      <button type="submit">Login</button>
+      <div class="recaptcha-note">Protected by Google reCAPTCHA v3</div>
+    </form>
+    <form id="signupForm" onsubmit="onSignupSubmit(event)" method="POST" action="/signup">
+      <label for="name">Name</label>
+      <input type="text" name="name" required />
+
+      <label for="email">Email</label>
+      <input type="email" name="email" required />
+
+      <label for="password">Password</label>
+      <input type="password" name="password" required />
+
+      <label for="confirm">Confirm Password</label>
+      <input type="password" name="confirm" required />
+
+      <div class="checkbox">
+        <input type="checkbox" id="terms" required />
+        <label for="terms">I agree to the Terms and Conditions</label>
+      </div>
+      <div class="checkbox">
+        <input type="checkbox" id="privacy" required />
+        <label for="privacy">I agree to the Privacy Policy</label>
+      </div>
+
+      <button type="submit">Signup</button>
+      <div class="recaptcha-note">Protected by Google reCAPTCHA v3</div>
+    </form>
+  </div>
+</body>
+</html>
