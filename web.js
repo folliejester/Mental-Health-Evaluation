@@ -3,6 +3,7 @@ const path = require('path');
 const session = require('express-session');
 const config = require('./config.json');
 const admin = require('firebase-admin');
+import { InferenceClient } from "@huggingface/inference";
 
 const app = express();
 const port = config.port;
@@ -56,7 +57,7 @@ app.post('/login', async (req, res) => {
     if (email === 'admin@rxo.me') {
       return res.redirect('/admin');
     } else {
-      return res.send(`Welcome ${email}! (regular user)`);
+      return res.redirect('/test');
     }
   } catch (err) {
     console.error(err);
@@ -363,48 +364,51 @@ app.post('/test', async (req, res) => {
   try {
     const userEmail = req.session.user.email;
 
-    // you could also store these in Firestore
+    // store answers initially
     const docRef = await db.collection('results').add({
       user: userEmail,
-      answers: answers,
+      answers,
       created: new Date()
     });
 
-    // build a prompt for AI
+    // create concise prompt for AI
+    const summarizedAnswers = Object.entries(answers).slice(0, 30).map(([k,v]) => `${k}: ${v}`).join(", ");
     const prompt = `
-User with email ${userEmail} completed a mental health test.
-Here are their answers:
-${JSON.stringify(answers)}
-Please write a helpful mental health evaluation in 300 words, and rate these 6 skills 0-100:
+User ${userEmail} finished a mental health assessment. Top answers:
+${summarizedAnswers}
+Write a helpful mental health evaluation in 300 words, and rate these 6 skills 0-100:
 - Emotional Stability
 - Stress Resilience
 - Social Interaction
 - Motivation
 - Self-Discipline
 - Optimism
-Return only JSON: {"text": "...", "scores": [..6 numbers..]}
-`;
+Respond with valid JSON:
+{"text": "...", "scores": [..6 numbers..]}
+    `;
 
-    const hfClient = new InferenceClient(config.hf_token);
+    const hfClient = new InferenceClient(config.hugging_face_key);
     const aiResponse = await hfClient.textGeneration({
       model: "mistralai/Mistral-7B-Instruct-v0.3",
       inputs: prompt,
-      parameters: {
-        max_new_tokens: 500
-      }
+      parameters: { max_new_tokens: 500 }
     });
 
     let aiResult;
     try {
       aiResult = JSON.parse(aiResponse.generated_text);
-    } catch {
+      if (!aiResult.text || !Array.isArray(aiResult.scores)) {
+        throw new Error("AI JSON missing fields");
+      }
+    } catch (e) {
+      console.error("AI returned invalid JSON", aiResponse.generated_text);
       aiResult = {
         text: "AI evaluation not available.",
         scores: [50,50,50,50,50,50]
       };
     }
 
-    // store result
+    // store evaluation and scores
     await docRef.update({
       evaluation: aiResult.text,
       scores: aiResult.scores
@@ -414,11 +418,31 @@ Return only JSON: {"text": "...", "scores": [..6 numbers..]}
       evaluation: aiResult.text,
       scores: aiResult.scores
     });
+
   } catch (err) {
     console.error(err);
     res.status(500).send('Error evaluating');
   }
 });
+
+app.get('/api/questions-user', async (req,res)=>{
+  try{
+    const snap = await db.collection('questions').get();
+    const list = [];
+    snap.forEach(doc=>{
+      list.push({ id: doc.id, ...doc.data() });
+    });
+    res.json(list);
+  }catch(e){
+    console.error(e);
+    res.status(500).send('Failed to load questions');
+  }
+});
+
+app.get('/test', (req,res)=>{
+  res.sendFile(path.join(__dirname,'test.html'));
+});
+
 
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
