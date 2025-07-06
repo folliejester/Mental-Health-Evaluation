@@ -698,9 +698,6 @@ async function loadDashboard() {
     const questions = await questionsSnap.json();
     document.getElementById("total-questions").textContent = questions.length;
 
-    // test attempts placeholder:
-    document.getElementById("total-attempts").textContent = "N/A"; // plug in later when you track attempts
-
     // feedback placeholder:
     document.getElementById("feedback-count").textContent = "0"; // change when you store feedback
 
@@ -724,7 +721,8 @@ async function loadDashboard() {
 fetch('/api/stats')
   .then(response => response.json())
   .then(data => {
-    document.getElementById('total-attempts').textContent = data.totalAttempts;
+    console.log(data);
+    document.getElementById('total-attempts').textContent = data.totalattempts;
   })
   .catch(err => console.error(err));
 
