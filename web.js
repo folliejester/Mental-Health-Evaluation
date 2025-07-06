@@ -1,15 +1,21 @@
-const express = require('express');
-const path = require('path');
-const session = require('express-session');
-const config = require('./config.json');
-const admin = require('firebase-admin');
+import express from 'express';
+import path from 'path';
+import session from 'express-session';
+import admin from 'firebase-admin';
 import { InferenceClient } from "@huggingface/inference";
+import config from './config.json' with { type: "json" };
+import fbAdminConfig from './fbadmin.json' with { type: "json" };
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const app = express();
 const port = config.port;
 
 admin.initializeApp({
-  credential: admin.credential.cert(require('./fbadmin.json')),
+  credential: admin.credential.cert(fbAdminConfig)
 });
 
 const db = admin.firestore();
@@ -374,39 +380,61 @@ app.post('/test', async (req, res) => {
     // create concise prompt for AI
     const summarizedAnswers = Object.entries(answers).slice(0, 30).map(([k,v]) => `${k}: ${v}`).join(", ");
     const prompt = `
-User ${userEmail} finished a mental health assessment. Top answers:
+You are a mental health evaluation assistant. A user has finished a psychological test with the following summarized answers:
 ${summarizedAnswers}
-Write a helpful mental health evaluation in 300 words, and rate these 6 skills 0-100:
+ 
+Please provide an encouraging, supportive, and *second-person* style evaluation for the user (speaking directly to them as "you"). Then, rate these 6 skills from 0–100:
 - Emotional Stability
 - Stress Resilience
 - Social Interaction
 - Motivation
 - Self-Discipline
 - Optimism
-Respond with valid JSON:
-{"text": "...", "scores": [..6 numbers..]}
-    `;
+
+Return strictly valid JSON only, with this structure:
+{
+  "text": "second-person, helpful, about 300 words, no numeric scores inside the text",
+  "scores": [emotional, stress, social, motivation, discipline, optimism]
+}
+`;
+
+
 
     const hfClient = new InferenceClient(config.hugging_face_key);
-    const aiResponse = await hfClient.textGeneration({
-      model: "mistralai/Mistral-7B-Instruct-v0.3",
-      inputs: prompt,
-      parameters: { max_new_tokens: 500 }
-    });
-
-    let aiResult;
-    try {
-      aiResult = JSON.parse(aiResponse.generated_text);
-      if (!aiResult.text || !Array.isArray(aiResult.scores)) {
-        throw new Error("AI JSON missing fields");
-      }
-    } catch (e) {
-      console.error("AI returned invalid JSON", aiResponse.generated_text);
-      aiResult = {
-        text: "AI evaluation not available.",
-        scores: [50,50,50,50,50,50]
-      };
+    const aiResponse = await hfClient.chatCompletion({
+  model: "mistralai/Mistral-7B-Instruct-v0.3",
+  provider: "novita",
+  messages: [
+    {
+      role: "system",
+      content: "You are a mental health evaluation assistant."
+    },
+    {
+      role: "user",
+      content: prompt
     }
+  ]
+});
+
+let aiResult;
+try {
+  aiResult = JSON.parse(aiResponse.generated_text);
+  if (!aiResult.text) {
+    throw new Error("AI JSON missing text");
+  }
+} catch (e) {
+  console.error("AI returned invalid JSON", aiResponse.generated_text);
+  aiResult = {
+    text: "AI evaluation not available."
+  };
+}
+
+if (!aiResult || !Array.isArray(aiResult.scores) || aiResult.scores.length !== 6) {
+  aiResult = {
+    text: "Your answers have been received. A more detailed evaluation will follow shortly.",
+    scores: [50, 50, 50, 50, 50, 50]
+  };
+}
 
     // store evaluation and scores
     await docRef.update({

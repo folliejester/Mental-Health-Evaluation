@@ -1,0 +1,4 @@
+google:
+recaptcha keys
+firebase api keys -> create authentication and enable email verify
+hugging face -> create acc > settings > access token
