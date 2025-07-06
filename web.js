@@ -456,6 +456,55 @@ app.get('/api/stats', async (req, res) => {
   }
 });
 
+app.post('/api/feedback', async (req, res) => {
+  try {
+    const { rating, feedback } = req.body;
+    if (!req.session.user) return res.status(403).send("Not logged in");
+
+    await db.collection("feedback").add({
+      user: req.session.user.email,
+      rating: rating ? Number(rating) : null,
+      feedback,
+      created: new Date()
+    });
+    res.json({ success: true });
+  } catch(err){
+    console.error(err);
+    res.status(500).send("Feedback failed");
+  }
+});
+
+app.get('/api/feedback', async (req, res) => {
+  try {
+    const snapshot = await db.collection('feedbacks').get();
+    const feedbacks = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    res.json(feedbacks);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Could not fetch feedback");
+  }
+});
+
+app.get('/api/evaluations/:uid', async (req,res)=>{
+  const uid = req.params.uid;
+  const user = await db.collection('users').doc(uid).get();
+  const userData = user.data();
+  const answers = await db.collection('answers')
+    .where('uid','==',uid)
+    .where('answer','!=',null)
+    .get();
+  const answersArr = answers.docs.map(doc=>({
+    question: doc.data().question,
+    answer: doc.data().answer
+  }));
+  const feedback = userData.feedback || null;
+  const evaluation = userData.evaluation || null;
+  res.json({evaluation, feedback, answers: answersArr});
+});
+
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
 });

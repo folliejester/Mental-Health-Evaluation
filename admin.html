@@ -63,16 +63,22 @@
     <div class="logo">MindMirror Admin</div>
     <nav>
       <a href="#" onclick="loadDashboard()"><i class="ph ph-gauge"></i> Dashboard</a>
-      <a href="#"><i class="ph ph-file-text"></i> Reports</a>
+      <a href="#" onclick="loadReports()"><i class="ph ph-file-text"></i> Reports</a>
       <a href="#" onclick="loadQuestionManager()"><i class="ph ph-list-checks"></i> Questions</a>
       <a href="#" onclick="loadUserManager()"><i class="ph ph-users"></i> Users</a>
       <a href="javascript:void(0)" onclick="loadPreviewTest()"><i class="ph ph-eye"></i> Preview Test</a>
+      <a href="/logout"><i class="ph ph-sign-out"></i> Logout</a>
     </nav>
   </div>
   <div class="main" id="main-content">
     <h2>Welcome, Admin</h2>
     <p>Use the navigation on the left to manage your MindMirror app. This is your admin control panel.</p>
   </div>
+  <div id="report-modal" style="display:none;position:fixed;top:10%;left:10%;right:10%;background:#fff;padding:20px;border:1px solid #ccc;border-radius:8px;max-height:80%;overflow-y:auto;z-index:100;">
+  <div id="report-modal-body"></div>
+  <button class="button" style="margin-top:10px;" onclick="document.getElementById('report-modal').style.display='none'">Close</button>
+</div>
+
   <script>
     let allQuestions = [];
 window.currentPage = 1;
@@ -698,8 +704,9 @@ async function loadDashboard() {
     const questions = await questionsSnap.json();
     document.getElementById("total-questions").textContent = questions.length;
 
-    // feedback placeholder:
-    document.getElementById("feedback-count").textContent = "0"; // change when you store feedback
+    const feedbackSnap = await fetch('/api/feedback');
+    const feedback = await feedbackSnap.json();
+    document.getElementById("feedback-count").textContent = feedback.length;
 
     // role breakdown
     const roleCount = users.reduce((acc,u)=>{
@@ -721,10 +728,114 @@ async function loadDashboard() {
 fetch('/api/stats')
   .then(response => response.json())
   .then(data => {
-    console.log(data);
-    document.getElementById('total-attempts').textContent = data.totalattempts;
+    document.getElementById('total-attempts').textContent = data.totalAttempts;
   })
   .catch(err => console.error(err));
+window.addEventListener('DOMContentLoaded', () => {
+  loadDashboard();
+});
+
+function loadReports(){
+  const content = document.getElementById("main-content");
+  content.innerHTML = `
+    <h2>Reports</h2>
+    <input type="text" id="report-search" placeholder="Search..." oninput="renderReports()" style="padding:8px;width:100%;max-width:250px;border:1px solid #ccc;border-radius:4px;margin-bottom:10px;">
+    <div style="overflow-x:auto;">
+      <table id="report-table" style="width:100%;border-collapse:collapse;">
+        <thead style="background:#4a90e2;color:black;">
+          <tr>
+            <th style="padding:10px;border:1px solid #ddd;">Name</th>
+            <th style="padding:10px;border:1px solid #ddd;">Email</th>
+            <th style="padding:10px;border:1px solid #ddd;">Actions</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div id="report-pagination" style="margin-top:10px;"></div>
+    <div id="report-modal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:white;border:1px solid #ddd;border-radius:8px;padding:20px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto;z-index:100;">
+      <h3>User Report</h3>
+      <div id="report-content"></div>
+      <button class="button" style="margin-top:10px;" onclick="closeReportModal()">Close</button>
+    </div>
+    <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.4);display:none;z-index:99;" id="report-backdrop" onclick="closeReportModal()"></div>
+  `;
+  window.currentReportPage = 1;
+  loadReportUsers();
+}
+
+let allReportUsers = [];
+
+async function loadReportUsers(){
+  const res = await fetch('/api/users');
+  allReportUsers = await res.json();
+  renderReports();
+}
+
+function renderReports(){
+  const tbody = document.querySelector("#report-table tbody");
+  const search = document.getElementById("report-search").value.toLowerCase();
+  let filtered = allReportUsers.filter(u =>
+    (u.name || '').toLowerCase().includes(search) ||
+    (u.email || '').toLowerCase().includes(search)
+  );
+  const perPage = window.innerWidth <= 768 ? 10 : 25;
+  const page = window.currentReportPage || 1;
+  const start = (page - 1) * perPage;
+  const pageItems = filtered.slice(start, start + perPage);
+  tbody.innerHTML = pageItems.map(u => `
+    <tr>
+      <td style="padding:8px;border:1px solid #ddd;">${u.name}</td>
+      <td style="padding:8px;border:1px solid #ddd;">${u.email}</td>
+      <td style="padding:8px;border:1px solid #ddd;">
+        <button class="button" onclick="viewReport('${u.uid}')">View</button>
+      </td>
+    </tr>
+  `).join("");
+  renderReportPagination(filtered.length, perPage);
+}
+
+function renderReportPagination(total, perPage){
+  const container = document.getElementById("report-pagination");
+  const pageCount = Math.ceil(total / perPage);
+  let buttons = "";
+  for(let i = 1; i <= pageCount; i++){
+    buttons += `<button class="button" onclick="goReportPage(${i})">${i}</button>`;
+  }
+  container.innerHTML = buttons;
+}
+
+function goReportPage(p){
+  window.currentReportPage = p;
+  renderReports();
+}
+
+async function viewReport(uid) {
+  try {
+    const res = await fetch(`/api/evaluations/${uid}`);
+    const data = await res.json();
+    let html = `
+      <h3>Report for ${data.name}</h3>
+      <p><strong>Email:</strong> ${data.email}</p>
+      <p><strong>Rating:</strong> ${data.rating || 'No rating given'}</p>
+      <p><strong>Feedback:</strong> ${data.feedback || 'No feedback given'}</p>
+      <hr>
+    `;
+    data.answers.filter(a => a.selected).forEach((q, idx) => {
+      html += `
+        <div style="margin-bottom:10px;">
+          <strong>${idx+1}. ${q.text}</strong><br>
+          <span style="background:#f0f0f0;padding:5px;border-radius:4px;">${q.selected}</span>
+        </div>
+      `;
+    });
+    document.getElementById("report-modal-body").innerHTML = html;
+    document.getElementById("report-modal").style.display = "block";
+  } catch(err) {
+    alert("Could not load report");
+    console.error(err);
+  }
+}
 
   </script>
 </body>

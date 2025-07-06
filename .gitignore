@@ -4,6 +4,8 @@ node_modules/
 # Environment and config files
 config.json
 fbadmin.json
+todo.txt
+test.html
 
 # Logs
 npm-debug.log

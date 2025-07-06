@@ -71,6 +71,34 @@
       padding:20px;
       text-align:center;
     }
+    #rating {
+  display: flex;
+  flex-direction: row-reverse;
+  justify-content: center;
+}
+
+    #feedback-box {
+      margin-top:30px;
+      padding:20px;
+      border:1px solid #ccc;
+      border-radius:8px;
+      background:#f9f9f9;
+    }
+    #feedback-box label {
+      font-size: 25px;
+      cursor: pointer;
+      color: #ccc;
+    }
+    #feedback-box input:checked ~ label {
+      color: gold;
+    }
+    #feedback-text {
+      width: 90%;
+      margin-top:10px;
+      padding:10px;
+      border-radius:5px;
+      border:1px solid #ccc;
+    }
   </style>
 </head>
 <body>
@@ -81,12 +109,23 @@
     <div id="progress-text">0% completed</div>
   </div>
   <form id="test-form" style="margin-top:60px;">
-    <!-- questions injected by JS -->
     <button type="submit">Submit Test</button>
   </form>
   <div id="result" style="display:none;">
     <h2>Evaluation</h2>
     <p id="evalText"></p>
+    <div id="feedback-box">
+      <h3>Rate this test</h3>
+      <div id="rating">
+        <input type="radio" id="star5" name="star" value="5"><label for="star5">&#9733;</label>
+        <input type="radio" id="star4" name="star" value="4"><label for="star4">&#9733;</label>
+        <input type="radio" id="star3" name="star" value="3"><label for="star3">&#9733;</label>
+        <input type="radio" id="star2" name="star" value="2"><label for="star2">&#9733;</label>
+        <input type="radio" id="star1" name="star" value="1"><label for="star1">&#9733;</label>
+      </div>
+      <textarea id="feedback-text" placeholder="Your feedback here..."></textarea>
+      <button id="submit-feedback">Submit Feedback</button>
+    </div>
     <div>
       <button onclick="location.href='/test'">Retake Test</button>
       <button onclick="window.location.href='/logout'">Logout</button>
@@ -111,7 +150,6 @@
           </div>`;
         form.insertBefore(div, form.querySelector("button"));
       });
-
       document.addEventListener("input", () => {
         const answered = document.querySelectorAll("input:checked").length;
         const percent = Math.round((answered / data.length) * 100);
@@ -119,9 +157,7 @@
         document.getElementById("progress-text").innerText = `${percent}% completed`;
       });
     }
-
     loadQuestions();
-
     document.getElementById("test-form").addEventListener("submit", async (e) => {
       e.preventDefault();
       const formData = new FormData(e.target);
@@ -140,6 +176,26 @@
       document.getElementById("test-form").style.display = "none";
       document.getElementById("result").style.display = "block";
       document.getElementById("evalText").innerText = data.evaluation;
+    });
+
+    document.getElementById("submit-feedback").addEventListener("click", async (e) => {
+      e.preventDefault();
+      const rating = document.querySelector("input[name='star']:checked");
+      const feedback = document.getElementById("feedback-text").value;
+      if (!rating && feedback.trim()==="") {
+        alert("Please provide a rating or feedback.");
+        return;
+      }
+      await fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type":"application/json" },
+        body: JSON.stringify({
+          rating: rating ? rating.value : null,
+          feedback
+        })
+      });
+      alert("Thanks for your feedback!");
+      document.getElementById("feedback-box").style.display = "none";
     });
   </script>
 </body>
