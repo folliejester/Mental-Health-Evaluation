@@ -5,103 +5,174 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>MindMirror Admin Panel</title>
   <style>
-    * { box-sizing: border-box; margin:0; padding:0; }
-    body { font-family: Arial, sans-serif; background:#f0f2f5; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { display: flex; font-family: "Segoe UI", sans-serif; background: #f0f2f5; color: #333; height: 100vh; }
     .sidebar {
-      width: 240px; background: #1e2a38; color: white;
-      position: fixed; top:0; left:0; bottom:0;
-      display: flex; flex-direction: column;
+      width: 240px;
+      background: #1e2a38;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      height: 100vh;
+      box-shadow: 2px 0 8px rgba(0,0,0,0.1);
+      transition: transform 0.3s ease;
+      z-index: 10;
     }
-    .sidebar .logo {
-      font-weight: bold; padding:20px; text-align:center; background:#18202b;
+    .sidebar.collapsed { transform: translateX(-100%); }
+    .sidebar .logo { font-size: 1.5em; font-weight: bold; text-align: center; padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); background: #18202b; }
+    .sidebar nav a { display: flex; align-items: center; padding: 15px 20px; text-decoration: none; color: #fff; transition: background 0.3s; }
+    .sidebar nav a:hover { background: rgba(255,255,255,0.1); }
+    .sidebar nav a i { margin-right: 10px; }
+    .main { margin-left: 240px; flex: 1; padding: 30px; overflow-y: auto; transition: margin-left 0.3s ease; }
+    .main h2 { color: #4a90e2; margin-bottom: 15px; }
+    .main p { font-size: 1.1em; line-height: 1.6; }
+    .hamburger {
+      display: none;
+      position: fixed;
+      top: 15px;
+      right: 15px;
+      background: #4a90e2;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      font-size: 1.5em;
+      padding: 8px 12px;
+      cursor: pointer;
+      z-index: 20;
     }
-    .sidebar nav a {
-      padding:15px 20px; color:white; text-decoration:none; display:block;
+    @media (max-width: 768px) {
+      .sidebar { transform: translateX(-100%); }
+      .sidebar.active { transform: translateX(0); }
+      .main { margin-left: 0; }
+      .hamburger { display: block; }
     }
-    .sidebar nav a:hover { background:rgba(255,255,255,0.1); }
-    .main {
-      margin-left:240px; padding:20px;
-    }
-    .button {
-      background:#4a90e2; color:white; border:none; padding:10px 15px;
-      margin:5px; cursor:pointer; border-radius:5px;
-    }
-    table { width:100%; border-collapse: collapse; margin-top:20px; }
-    th,td { border:1px solid #ccc; padding:10px; }
+    /* question manager styles */
+    .button { background: #4a90e2; color: white; border: none; padding: 8px 12px; border-radius: 5px; margin: 5px; cursor: pointer; }
+    table { width:100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border:1px solid #ccc; padding:10px; }
     th { background:#eee; }
     .hidden { display:none; }
-    input[type="text"] { width: 100%; padding: 5px; margin:5px 0; }
+    input[type="text"] { width: 100%; padding:5px; margin:5px 0; }
   </style>
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
 </head>
 <body>
-  <div class="sidebar">
+  <button class="hamburger" onclick="toggleSidebar()">☰</button>
+  <div class="sidebar" id="sidebar">
     <div class="logo">MindMirror Admin</div>
     <nav>
-      <a href="#" onclick="loadQuestionManager()">Questions</a>
-      <a href="#">Dashboard</a>
-      <a href="#">Reports</a>
-      <a href="#">Users</a>
-      <a href="#">Preview Test</a>
+      <a href="#" onclick="loadDashboard()"><i class="ph ph-gauge"></i> Dashboard</a>
+      <a href="#"><i class="ph ph-file-text"></i> Reports</a>
+      <a href="#" onclick="loadQuestionManager()"><i class="ph ph-list-checks"></i> Questions</a>
+      <a href="#" onclick="loadUserManager()"><i class="ph ph-users"></i> Users</a>
+      <a href="#"><i class="ph ph-eye"></i> Preview Test</a>
     </nav>
   </div>
   <div class="main" id="main-content">
     <h2>Welcome, Admin</h2>
-    <p>Select an option from the sidebar to get started.</p>
+    <p>Use the navigation on the left to manage your MindMirror app. This is your admin control panel.</p>
   </div>
   <script>
-    function loadQuestionManager(){
-      const content = document.getElementById("main-content");
-      content.innerHTML = `
-        <h2>Question Manager</h2>
-        <button class="button" onclick="showAddForm()">Add Question</button>
-        <button class="button" onclick="deleteSelected()">Delete Selected</button>
-        <table id="questions-table">
-          <thead>
-            <tr>
-              <th><input type="checkbox" id="select-all" onchange="toggleSelectAll(this)"></th>
-              <th>Question</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-        <div id="question-form" class="hidden">
-          <h3 id="form-title">Add Question</h3>
-          <input type="hidden" id="qid" />
-          <label>Question:</label>
-          <input type="text" id="qtext" />
-          <div>
-            <label>Options:</label>
-            <input type="text" id="opt1" value="Strongly Agree" />
-            <input type="text" id="opt2" value="Agree" />
-            <input type="text" id="opt3" value="Neutral" />
-            <input type="text" id="opt4" value="Disagree" />
-            <input type="text" id="opt5" value="Strongly Disagree" />
-          </div>
-          <button class="button" onclick="saveQuestion()">Save</button>
-          <button class="button" onclick="hideForm()">Cancel</button>
-        </div>
-      `;
-      loadQuestions();
+    let allQuestions = [];
+window.currentPage = 1;
+
+    function toggleSidebar() {
+      document.getElementById('sidebar').classList.toggle('active');
     }
+    function loadDashboard(){
+      document.getElementById("main-content").innerHTML = `
+        <h2>Dashboard</h2>
+        <p>This is your dashboard. (To be developed)</p>
+      `;
+    }
+    function loadQuestionManager(){
+  const content = document.getElementById("main-content");
+  content.innerHTML = `
+    <h2>Question Manager</h2>
+    <input type="text" id="search-box" placeholder="Search..." oninput="renderQuestions()" style="padding:5px; width:200px;"/>
+    <button class="button" onclick="showAddForm()">Add Question</button>
+    <button class="button" onclick="deleteSelected()">Delete Selected</button>
+    <input type="file" id="csvfile" accept=".csv" />
+<button class="button" onclick="importCSV()">Import CSV</button>
+    <table id="questions-table">
+      <thead>
+        <tr>
+          <th style="text-align: center;">
+  <input type="checkbox" id="select-all" onchange="toggleSelectAll(this)">
+</th>
+
+          <th>Question</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div id="pagination" style="margin-top:10px;"></div>
+    <div id="question-form" class="hidden">
+      <h3 id="form-title">Add Question</h3>
+      <input type="hidden" id="qid" />
+      <label>Question:</label>
+      <input type="text" id="qtext" />
+      <div>
+        <label>Options:</label>
+        <input type="text" id="opt1" value="Strongly Agree" />
+        <input type="text" id="opt2" value="Agree" />
+        <input type="text" id="opt3" value="Neutral" />
+        <input type="text" id="opt4" value="Disagree" />
+        <input type="text" id="opt5" value="Strongly Disagree" />
+      </div>
+      <button class="button" onclick="saveQuestion()">Save</button>
+      <button class="button" onclick="hideForm()">Cancel</button>
+    </div>
+  `;
+  window.currentPage = 1;
+  loadQuestions();
+}
 
     async function loadQuestions(){
-      const res = await fetch('/api/questions');
-      const data = await res.json();
-      const tbody = document.querySelector("#questions-table tbody");
-      tbody.innerHTML = data.map(q=>`
-        <tr>
-          <td><input type="checkbox" class="select-q" value="${q.id}"></td>
-          <td>${q.text}</td>
-          <td><button onclick="editQuestion('${q.id}')">Edit</button></td>
-        </tr>
-      `).join("");
-    }
+  const res = await fetch('/api/questions');
+  allQuestions = await res.json();
+  renderQuestions();
+}
+function renderQuestions(){
+  const tbody = document.querySelector("#questions-table tbody");
+  const search = document.getElementById("search-box")?.value?.toLowerCase() || "";
+  let filtered = allQuestions.filter(q => q.text.toLowerCase().includes(search));
+
+  const perPage = window.innerWidth <= 768 ? 10 : 25;
+  const page = window.currentPage || 1;
+  const start = (page-1)*perPage;
+  const pageItems = filtered.slice(start, start+perPage);
+
+  tbody.innerHTML = pageItems.map(q=>`
+    <tr>
+      <td><input type="checkbox" class="select-q" value="${q.id}"></td>
+      <td>${q.text}</td>
+      <td><button class="button" onclick="editQuestion('${q.id}')">Edit</button></td>
+    </tr>
+  `).join("");
+
+  renderPagination(filtered.length, perPage);
+}
+function renderPagination(total, perPage){
+  const container = document.getElementById("pagination");
+  if(!container) return;
+  const pageCount = Math.ceil(total/perPage);
+  let buttons = "";
+  for(let i=1; i<=pageCount; i++){
+    buttons += `<button class="button" onclick="goPage(${i})">${i}</button>`;
+  }
+  container.innerHTML = buttons;
+}
+function goPage(p){
+  window.currentPage = p;
+  renderQuestions();
+}
 
     function toggleSelectAll(master){
       document.querySelectorAll(".select-q").forEach(cb => cb.checked = master.checked);
     }
-
     function showAddForm(){
       document.getElementById("question-form").classList.remove("hidden");
       document.getElementById("form-title").innerText = "Add Question";
@@ -113,35 +184,42 @@
       document.getElementById("opt4").value = "Disagree";
       document.getElementById("opt5").value = "Strongly Disagree";
     }
-
     function hideForm(){
       document.getElementById("question-form").classList.add("hidden");
     }
-
     async function saveQuestion(){
-      const id = document.getElementById("qid").value;
-      const text = document.getElementById("qtext").value;
-      const options = [
-        document.getElementById("opt1").value,
-        document.getElementById("opt2").value,
-        document.getElementById("opt3").value,
-        document.getElementById("opt4").value,
-        document.getElementById("opt5").value
-      ];
-      if(id){
-        await fetch('/api/questions/update', {
-          method:"POST",headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({id,text,options})
-        });
-      } else {
-        await fetch('/api/questions/add', {
-          method:"POST",headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({text,options})
-        });
+  const id = document.getElementById("qid").value;
+  const text = document.getElementById("qtext").value;
+  const options = [
+    document.getElementById("opt1").value,
+    document.getElementById("opt2").value,
+    document.getElementById("opt3").value,
+    document.getElementById("opt4").value,
+    document.getElementById("opt5").value
+  ];
+  try {
+    if(id){
+      await fetch('/api/questions/update', {
+        method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({id,text,options})
+      });
+    } else {
+      const res = await fetch('/api/questions/add', {
+        method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({text,options})
+      });
+      const data = await res.json();
+      if(data.error){
+        alert(data.error);
+        return;
       }
-      hideForm();
-      loadQuestions();
     }
+    hideForm();
+    loadQuestions();
+  } catch(err){
+    alert("Error saving question.");
+  }
+}
 
     async function editQuestion(id){
       const res = await fetch('/api/questions');
@@ -159,7 +237,6 @@
         document.getElementById("question-form").classList.remove("hidden");
       }
     }
-
     async function deleteSelected(){
       const ids = Array.from(document.querySelectorAll(".select-q:checked")).map(cb => cb.value);
       if(ids.length===0) return alert("Nothing selected");
@@ -170,6 +247,200 @@
       });
       loadQuestions();
     }
+
+    function loadUserManager(){
+  const content = document.getElementById("main-content");
+  content.innerHTML = `
+    <h2>User Manager</h2>
+    <table id="users-table">
+      <thead>
+        <tr>
+          <th>Email</th>
+          <th>Name</th>
+          <th>Admin</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  `;
+  loadUsers();
+}
+
+async function loadUsers(){
+  const res = await fetch('/api/users');
+  const data = await res.json();
+  const tbody = document.querySelector("#users-table tbody");
+  tbody.innerHTML = data.map(u => `
+    <tr>
+      <td>${u.email}</td>
+      <td>${u.displayName}</td>
+      <td>${u.admin ? 'Yes' : 'No'}</td>
+      <td>
+        ${!u.admin ? `<button class="button" onclick="promoteUser('${u.uid}')">Promote</button>` : ''}
+        <button class="button" onclick="deleteUser('${u.uid}')">Delete</button>
+      </td>
+    </tr>
+  `).join("");
+}
+
+async function promoteUser(uid){
+  if(!confirm("Make this user admin?")) return;
+  await fetch('/api/users/promote', {
+    method: "POST", headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ uid })
+  });
+  loadUsers();
+}
+
+async function deleteUser(uid){
+  if(!confirm("Delete this user?")) return;
+  await fetch('/api/users/delete', {
+    method: "POST", headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ uid })
+  });
+  loadUsers();
+}
+
+async function importCSV(){
+  const fileInput = document.getElementById("csvfile");
+  if(fileInput.files.length === 0){
+    alert("Please select a CSV file");
+    return;
+  }
+  const file = fileInput.files[0];
+  const text = await file.text();
+  const rows = text.split("\n").map(line => line.trim()).filter(l => l.length>0);
+  const data = [];
+  for(const row of rows){
+    const parts = row.split(",");
+    if(parts.length >= 1){
+      data.push({
+        text: parts[0],
+        options: parts.slice(1).length > 0 ? parts.slice(1) : [
+          "Strongly Agree","Agree","Neutral","Disagree","Strongly Disagree"
+        ]
+      });
+    }
+  }
+  const res = await fetch('/api/questions/import', {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({questions: data})
+  });
+  if(res.ok){
+    alert("Import completed!");
+    loadQuestions();
+  } else {
+    alert("Import failed.");
+  }
+}
+
+function loadUserManager(){
+  const content = document.getElementById("main-content");
+  content.innerHTML = `
+    <h2>User Manager</h2>
+    <input type="text" id="user-search" placeholder="Search..." oninput="renderUsers()" style="padding:5px;width:200px;">
+    <table id="user-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Created At</th>
+          <th>Evaluation</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div id="user-pagination" style="margin-top:10px;"></div>
+  `;
+  window.currentUserPage = 1;
+  loadUsers();
+}
+
+let allUsers = [];
+
+async function loadUsers(){
+  const res = await fetch('/api/users');
+  allUsers = await res.json();
+  renderUsers();
+}
+
+function renderUsers(){
+  const tbody = document.querySelector("#user-table tbody");
+  const search = document.getElementById("user-search").value.toLowerCase();
+  let filtered = allUsers.filter(u => u.name.toLowerCase().includes(search) || u.email.toLowerCase().includes(search));
+
+  const perPage = window.innerWidth <= 768 ? 10 : 25;
+  const page = window.currentUserPage || 1;
+  const start = (page-1)*perPage;
+  const pageItems = filtered.slice(start, start+perPage);
+
+  tbody.innerHTML = pageItems.map(u=>`
+    <tr>
+      <td>${u.name}</td>
+      <td>${u.email}</td>
+      <td>${new Date(u.createdAt).toLocaleString()}</td>
+      <td>Pending</td>
+      <td>
+        <button class="button" onclick="editUser('${u.uid}')">Edit</button>
+        <button class="button" onclick="deleteUser('${u.uid}')">Delete</button>
+        <button class="button" onclick="toggleDisable('${u.uid}', ${u.disabled})">${u.disabled?'Enable':'Disable'}</button>
+      </td>
+    </tr>
+  `).join("");
+
+  renderUserPagination(filtered.length, perPage);
+}
+
+function renderUserPagination(total, perPage){
+  const container = document.getElementById("user-pagination");
+  const pageCount = Math.ceil(total/perPage);
+  let buttons = "";
+  for(let i=1; i<=pageCount; i++){
+    buttons += `<button class="button" onclick="goUserPage(${i})">${i}</button>`;
+  }
+  container.innerHTML = buttons;
+}
+
+function goUserPage(p){
+  window.currentUserPage = p;
+  renderUsers();
+}
+
+async function editUser(uid){
+  const user = allUsers.find(u=>u.uid===uid);
+  if(!user) return;
+  const name = prompt("New name", user.name);
+  const email = prompt("New email", user.email);
+  if(name && email){
+    await fetch('/api/users/update', {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({uid, name, email})
+    });
+    loadUsers();
+  }
+}
+
+async function deleteUser(uid){
+  if(confirm("Are you sure you want to delete this user?")){
+    await fetch('/api/users/delete', {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({uid})
+    });
+    loadUsers();
+  }
+}
+
+async function toggleDisable(uid, disabled){
+  await fetch('/api/users/disable', {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({uid, disable: !disabled})
+  });
+  loadUsers();
+}
+
   </script>
 </body>
 </html>

@@ -1,5 +1,6 @@
 const express = require('express');
 const path = require('path');
+const session = require('express-session');
 const config = require('./config.json');
 const admin = require('firebase-admin');
 
@@ -9,10 +10,20 @@ const port = config.port;
 admin.initializeApp({
   credential: admin.credential.cert(require('./fbadmin.json')),
 });
+
 const db = admin.firestore();
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+
+app.use(session({
+  secret: 'mindmirror-secret',
+  resave: false,
+  saveUninitialized: false
+}));
+
+// serve static files
+app.use(express.static(__dirname));
 
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
@@ -38,8 +49,15 @@ app.post('/login', async (req, res) => {
     if (!verifyData.success || verifyData.score < 0.5) {
       return res.status(400).send('reCAPTCHA failed');
     }
-    // You might do actual credential checks here later
-    res.send('Login successful! (Demo)');
+
+    // simple session auth for demo
+    req.session.user = { email };
+
+    if (email === 'admin@rxo.me') {
+      return res.redirect('/admin');
+    } else {
+      return res.send(`Welcome ${email}! (regular user)`);
+    }
   } catch (err) {
     console.error(err);
     res.status(500).send('Server error');
@@ -80,8 +98,20 @@ app.post('/signup', async (req, res) => {
   }
 });
 
-// question manager API
+// admin panel protected
+app.get('/admin', (req, res) => {
+  if (req.session.user && req.session.user.email === 'admin@rxo.me') {
+    res.sendFile(path.join(__dirname, 'admin.html'));
+  } else {
+    res.status(403).send('Forbidden');
+  }
+});
+
+// API to get questions
 app.get('/api/questions', async (req, res) => {
+  if (!req.session.user || req.session.user.email !== 'admin@rxo.me') {
+    return res.status(403).send('Forbidden');
+  }
   try {
     const snapshot = await db.collection('questions').get();
     const questions = [];
@@ -95,12 +125,19 @@ app.get('/api/questions', async (req, res) => {
   }
 });
 
+// add question
 app.post('/api/questions/add', async (req, res) => {
-  const { text, options } = req.body;
-  if (!text || !options || !Array.isArray(options)) {
-    return res.status(400).json({ error: 'Missing question text or options' });
+  if (!req.session.user || req.session.user.email !== 'admin@rxo.me') {
+    return res.status(403).send('Forbidden');
   }
+  const { text, options } = req.body;
   try {
+    // check for duplicate
+    const duplicate = await db.collection('questions').where('text', '==', text).get();
+    if (!duplicate.empty) {
+      return res.status(400).json({ error: 'Question already exists' });
+    }
+
     const ref = await db.collection('questions').add({ text, options });
     res.json({ id: ref.id });
   } catch (err) {
@@ -109,11 +146,13 @@ app.post('/api/questions/add', async (req, res) => {
   }
 });
 
+
+// update question
 app.post('/api/questions/update', async (req, res) => {
-  const { id, text, options } = req.body;
-  if (!id || !text || !options || !Array.isArray(options)) {
-    return res.status(400).json({ error: 'Missing data' });
+  if (!req.session.user || req.session.user.email !== 'admin@rxo.me') {
+    return res.status(403).send('Forbidden');
   }
+  const { id, text, options } = req.body;
   try {
     await db.collection('questions').doc(id).update({ text, options });
     res.json({ success: true });
@@ -123,11 +162,12 @@ app.post('/api/questions/update', async (req, res) => {
   }
 });
 
+// bulk delete
 app.post('/api/questions/delete', async (req, res) => {
-  const { ids } = req.body;
-  if (!ids || !Array.isArray(ids)) {
-    return res.status(400).json({ error: 'Missing ids' });
+  if (!req.session.user || req.session.user.email !== 'admin@rxo.me') {
+    return res.status(403).send('Forbidden');
   }
+  const { ids } = req.body;
   try {
     for (const id of ids) {
       await db.collection('questions').doc(id).delete();
@@ -139,7 +179,132 @@ app.post('/api/questions/delete', async (req, res) => {
   }
 });
 
+// get users list
+app.get('/api/users', async (req, res) => {
+  if (!req.session.user || req.session.user.email !== 'admin@rxo.me') {
+    return res.status(403).send('Forbidden');
+  }
+  try {
+    const listUsers = await admin.auth().listUsers(1000); // max 1000
+    const users = listUsers.users.map(u => ({
+      uid: u.uid,
+      email: u.email,
+      displayName: u.displayName || '',
+      admin: u.customClaims && u.customClaims.admin === true
+    }));
+    res.json(users);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to list users' });
+  }
+});
+
+// delete user
+app.post('/api/users/delete', async (req, res) => {
+  if (!req.session.user || req.session.user.email !== 'admin@rxo.me') {
+    return res.status(403).send('Forbidden');
+  }
+  const { uid } = req.body;
+  try {
+    await admin.auth().deleteUser(uid);
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Delete failed' });
+  }
+});
+
+// promote to admin
+app.post('/api/users/promote', async (req, res) => {
+  if (!req.session.user || req.session.user.email !== 'admin@rxo.me') {
+    return res.status(403).send('Forbidden');
+  }
+  const { uid } = req.body;
+  try {
+    await admin.auth().setCustomUserClaims(uid, { admin: true });
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Promote failed' });
+  }
+});
+
+app.post('/api/questions/import', async (req, res) => {
+  if (!req.session.user || req.session.user.email !== 'admin@rxo.me') {
+    return res.status(403).send('Forbidden');
+  }
+  try {
+    const questions = req.body.questions;
+    for(const q of questions){
+      // check duplicates
+      const exists = await db.collection('questions').where('text','==',q.text).get();
+      if(exists.empty){
+        await db.collection('questions').add({
+          text: q.text,
+          options: q.options
+        });
+      }
+    }
+    res.send("Import done");
+  } catch(err){
+    console.error(err);
+    res.status(500).send("Import failed");
+  }
+});
+
+app.get('/api/users', async (req, res) => {
+  if (!req.session.user || req.session.user.email !== 'admin@rxo.me') {
+    return res.status(403).send('Forbidden');
+  }
+  try {
+    const listUsers = await admin.auth().listUsers(1000);
+    const users = listUsers.users.map(u => ({
+      uid: u.uid,
+      name: u.displayName || '',
+      email: u.email || '',
+      createdAt: u.metadata.creationTime,
+      disabled: u.disabled || false
+    }));
+    res.json(users);
+  } catch(err){
+    console.error(err);
+    res.status(500).send('Error fetching users');
+  }
+});
+
+app.post('/api/users/update', async (req, res) => {
+  const { uid, name, email } = req.body;
+  try {
+    await admin.auth().updateUser(uid, { displayName: name, email });
+    res.send('Updated');
+  } catch(err){
+    console.error(err);
+    res.status(500).send('Update failed');
+  }
+});
+
+app.post('/api/users/delete', async (req, res) => {
+  const { uid } = req.body;
+  try {
+    await admin.auth().deleteUser(uid);
+    res.send('Deleted');
+  } catch(err){
+    console.error(err);
+    res.status(500).send('Delete failed');
+  }
+});
+
+app.post('/api/users/disable', async (req, res) => {
+  const { uid, disable } = req.body;
+  try {
+    await admin.auth().updateUser(uid, { disabled: disable });
+    res.send('Status updated');
+  } catch(err){
+    console.error(err);
+    res.status(500).send('Failed to update status');
+  }
+});
 
 app.listen(port, () => {
-  console.log(`Server listening on http://localhost:${port}`);
+  console.log(`Server running on http://localhost:${port}`);
 });
