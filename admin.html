@@ -66,7 +66,7 @@
       <a href="#"><i class="ph ph-file-text"></i> Reports</a>
       <a href="#" onclick="loadQuestionManager()"><i class="ph ph-list-checks"></i> Questions</a>
       <a href="#" onclick="loadUserManager()"><i class="ph ph-users"></i> Users</a>
-      <a href="#"><i class="ph ph-eye"></i> Preview Test</a>
+      <a href="javascript:void(0)" onclick="loadPreviewTest()"><i class="ph ph-eye"></i> Preview Test</a>
     </nav>
   </div>
   <div class="main" id="main-content">
@@ -338,23 +338,68 @@ async function importCSV(){
 
 function loadUserManager(){
   const content = document.getElementById("main-content");
-  content.innerHTML = `
-    <h2>User Manager</h2>
-    <input type="text" id="user-search" placeholder="Search..." oninput="renderUsers()" style="padding:5px;width:200px;">
-    <table id="user-table">
-      <thead>
+content.innerHTML = `
+  <h2>User Manager</h2>
+  <div style="margin-bottom:15px;">
+    <input type="text" id="user-search" placeholder="Search..." oninput="renderUsers()" style="padding:8px;width:100%;max-width:250px;border:1px solid #ccc;border-radius:4px;">
+    <button class="button" style="margin-left:10px;" onclick="showAddUserForm()">Add User</button>
+  </div>
+  <div style="overflow-x:auto;">
+    <table id="user-table" style="width:100%;border-collapse:collapse;table-layout:fixed;">
+      <thead style="background:#4a90e2;color:black;">
         <tr>
-          <th>Name</th>
-          <th>Email</th>
-          <th>Created At</th>
-          <th>Evaluation</th>
-          <th>Actions</th>
+          <th style="padding:10px;border:1px solid #ddd;">Name</th>
+          <th style="padding:10px;border:1px solid #ddd;">Email</th>
+          <th style="padding:10px;border:1px solid #ddd;">Created At</th>
+          <th style="padding:10px;border:1px solid #ddd;">Evaluation</th>
+          <th style="padding:10px;border:1px solid #ddd;">Actions</th>
         </tr>
       </thead>
       <tbody></tbody>
     </table>
-    <div id="user-pagination" style="margin-top:10px;"></div>
-  `;
+  </div>
+  <div id="user-pagination" style="margin-top:10px;"></div>
+  <div id="user-form" class="hidden" style="background:#fff;padding:20px;border:1px solid #ddd;border-radius:8px;max-width:400px;margin-top:20px;">
+    <h3 id="user-form-title">Add User</h3>
+    <div style="margin-bottom:10px;">
+      <label>Name:</label>
+      <input type="text" id="newname" style="width:100%;padding:8px;margin-top:5px;border:1px solid #ccc;border-radius:4px;">
+    </div>
+    <div style="margin-bottom:10px;">
+      <label>Email:</label>
+      <input type="email" id="newemail" style="width:100%;padding:8px;margin-top:5px;border:1px solid #ccc;border-radius:4px;">
+    </div>
+    <div style="margin-bottom:10px;">
+      <label>Password:</label>
+      <input type="password" id="newpassword" style="width:100%;padding:8px;margin-top:5px;border:1px solid #ccc;border-radius:4px;">
+    </div>
+    <div style="margin-bottom:10px;">
+      <label>Confirm Password:</label>
+      <input type="password" id="confirmpassword" style="width:100%;padding:8px;margin-top:5px;border:1px solid #ccc;border-radius:4px;">
+    </div>
+    <div style="margin-bottom:10px;">
+      <label>Role:</label>
+      <select id="role" style="width:100%;padding:8px;margin-top:5px;border:1px solid #ccc;border-radius:4px;">
+        <option value="regular">Regular</option>
+        <option value="admin">Admin</option>
+      </select>
+    </div>
+    <button class="button" style="background:#4a90e2;color:white;" onclick="saveNewUser()">Save</button>
+    <button class="button" style="background:#ccc;margin-left:10px;" onclick="hideAddUserForm()">Cancel</button>
+  </div>
+  <style>
+    #user-table td, #user-table th {
+      word-break: break-all;
+      font-size: 0.9em;
+    }
+    @media(max-width: 768px){
+      #user-table th, #user-table td {
+        font-size: 0.8em;
+      }
+    }
+  </style>
+`;
+
   window.currentUserPage = 1;
   loadUsers();
 }
@@ -370,7 +415,11 @@ async function loadUsers(){
 function renderUsers(){
   const tbody = document.querySelector("#user-table tbody");
   const search = document.getElementById("user-search").value.toLowerCase();
-  let filtered = allUsers.filter(u => u.name.toLowerCase().includes(search) || u.email.toLowerCase().includes(search));
+  let filtered = allUsers.filter(u => 
+  (u.name || '').toLowerCase().includes(search) || 
+  (u.email || '').toLowerCase().includes(search)
+);
+
 
   const perPage = window.innerWidth <= 768 ? 10 : 25;
   const page = window.currentUserPage || 1;
@@ -439,6 +488,238 @@ async function toggleDisable(uid, disabled){
     body:JSON.stringify({uid, disable: !disabled})
   });
   loadUsers();
+}
+function showAddUserForm(){
+  document.getElementById("user-form").classList.remove("hidden");
+}
+function hideAddUserForm(){
+  document.getElementById("user-form").classList.add("hidden");
+}
+async function saveNewUser(){
+  const name = document.getElementById("newname").value;
+  const email = document.getElementById("newemail").value;
+  const password = document.getElementById("newpassword").value;
+  const confirm = document.getElementById("confirmpassword").value;
+  const role = document.getElementById("role").value;
+
+  if(!name || !email || !password || !confirm){
+    alert("Please fill all fields");
+    return;
+  }
+  if(password !== confirm){
+    alert("Passwords do not match");
+    return;
+  }
+
+  const res = await fetch('/api/users/add', {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({name, email, password, role})
+  });
+  if(res.ok){
+    alert("User created!");
+    hideAddUserForm();
+    loadUsers();
+  } else {
+    const err = await res.text();
+    alert("Error: "+err);
+  }
+}
+
+async function loadPreviewTest() {
+  const content = document.querySelector(".main");
+  content.innerHTML = `
+    <style>
+      #progress-container {
+        position: fixed;
+        top: 0;
+        left: 240px;
+        right: 0;
+        background: #f0f2f5;
+        padding: 10px;
+        z-index: 1000;
+      }
+      #progress-bar {
+        background: #4a90e2;
+        height: 20px;
+        width: 0%;
+        border-radius: 10px;
+        transition: width 0.3s ease;
+      }
+      #progress-text {
+        margin-top:5px;
+        font-size:0.9em;
+      }
+      .question-block {
+        margin-top:60px;
+        margin-bottom:20px;
+        padding:15px;
+        background:#fff;
+        border:1px solid #ddd;
+        border-radius:8px;
+      }
+      .options-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 10px;
+      }
+      .options-group label {
+        flex: 1 1 150px;
+        background:#f5f5f5;
+        border:1px solid #ccc;
+        border-radius:5px;
+        padding:8px;
+        text-align:center;
+        cursor:pointer;
+      }
+      @media(max-width: 768px){
+        #progress-container {
+          left: 0;
+        }
+        .options-group {
+          flex-direction: column;
+        }
+        .options-group label {
+          flex: 1 1 100%;
+        }
+      }
+    </style>
+    <div id="progress-container">
+      <div style="background:#ddd;width:100%;height:20px;border-radius:10px;">
+        <div id="progress-bar"></div>
+      </div>
+      <div id="progress-text">0% completed</div>
+    </div>
+    <form id="test-form" style="margin-top:60px;"></form>
+  `;
+
+  try {
+    const res = await fetch('/api/questions');
+    const questions = await res.json();
+    const form = document.getElementById("test-form");
+
+    questions.forEach((q, idx) => {
+      const block = document.createElement("div");
+      block.className = "question-block";
+      block.innerHTML = `
+        <strong>${idx + 1}. ${q.text}</strong>
+        <div class="options-group">
+          ${q.options.map((opt, i) => `
+            <label>
+              <input type="radio" name="q${idx}" value="${opt}" onchange="updateProgress()"/> ${opt}
+            </label>
+          `).join("")}
+        </div>
+      `;
+      form.appendChild(block);
+    });
+  } catch(err) {
+    console.error(err);
+    content.innerHTML += `<p>Error loading questions</p>`;
+  }
+}
+
+function updateProgress() {
+  const total = document.querySelectorAll("#test-form fieldset, #test-form strong").length;
+  const answered = document.querySelectorAll("#test-form input:checked").length;
+  const percent = Math.round((answered/total)*100);
+  document.getElementById("progress-bar").style.width = percent+"%";
+  document.getElementById("progress-text").textContent = `${percent}% completed`;
+}
+
+async function loadDashboard() {
+  const content = document.querySelector(".main");
+  content.innerHTML = `
+    <style>
+      .dashboard-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+      }
+      .card {
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        text-align: center;
+      }
+      .card h3 {
+        margin-top: 0;
+        color: #4a90e2;
+      }
+      .card p {
+        font-size: 2em;
+        margin: 10px 0;
+      }
+      @media(max-width:768px){
+        .dashboard-cards {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+    <h2>Dashboard</h2>
+    <div class="dashboard-cards">
+      <div class="card">
+        <h3>Total Users</h3>
+        <p id="total-users">0</p>
+      </div>
+      <div class="card">
+        <h3>Total Questions</h3>
+        <p id="total-questions">0</p>
+      </div>
+      <div class="card">
+        <h3>Total Attempts</h3>
+        <p id="total-attempts">0</p>
+      </div>
+      <div class="card">
+        <h3>Feedback</h3>
+        <p id="feedback-count">0</p>
+      </div>
+      <div class="card">
+        <h3>Role Breakdown</h3>
+        <p id="role-breakdown">Loading...</p>
+      </div>
+      <div class="card">
+        <h3>Firestore Status</h3>
+        <p id="firestore-status">Checking...</p>
+      </div>
+    </div>
+  `;
+
+  // load live data
+  try {
+    const usersSnap = await fetch('/api/users');
+    const users = await usersSnap.json();
+    document.getElementById("total-users").textContent = users.length;
+
+    const questionsSnap = await fetch('/api/questions');
+    const questions = await questionsSnap.json();
+    document.getElementById("total-questions").textContent = questions.length;
+
+    // test attempts placeholder:
+    document.getElementById("total-attempts").textContent = "N/A"; // plug in later when you track attempts
+
+    // feedback placeholder:
+    document.getElementById("feedback-count").textContent = "0"; // change when you store feedback
+
+    // role breakdown
+    const roleCount = users.reduce((acc,u)=>{
+      if(u.role==='admin') acc.admin++;
+      else acc.regular++;
+      return acc;
+    },{admin:0,regular:0});
+    document.getElementById("role-breakdown").textContent = 
+      `Admins: ${roleCount.admin}, Regular: ${roleCount.regular}`;
+
+    // firestore status
+    document.getElementById("firestore-status").textContent = "Connected";
+
+  } catch (err) {
+    console.error(err);
+    document.getElementById("firestore-status").textContent = "Error connecting";
+  }
 }
 
   </script>

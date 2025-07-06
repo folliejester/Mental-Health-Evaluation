@@ -305,6 +305,121 @@ app.post('/api/users/disable', async (req, res) => {
   }
 });
 
+app.post('/api/users/add', async (req, res) => {
+  if (!req.session.user || req.session.user.email !== 'admin@rxo.me') {
+    return res.status(403).send('Forbidden');
+  }
+  const { name, email, password, role } = req.body;
+  if (!name || !email || !password || !role) {
+    return res.status(400).send("Missing fields");
+  }
+  try {
+    const userRecord = await admin.auth().createUser({
+      displayName: name,
+      email,
+      password,
+    });
+    if(role==="admin"){
+      await admin.auth().setCustomUserClaims(userRecord.uid, {admin:true});
+    }
+    res.send("Created");
+  } catch(err){
+    console.error(err);
+    res.status(500).send(err.message);
+  }
+});
+
+app.get('/api/questions', async (req,res)=>{
+  try {
+    const snapshot = await db.collection("questions").get();
+    const questions = [];
+    snapshot.forEach(doc=>{
+      questions.push({id:doc.id, ...doc.data()});
+    });
+    res.json(questions);
+  } catch(err){
+    console.error(err);
+    res.status(500).send("Error loading questions");
+  }
+});
+app.get('/test', (req, res) => {
+  if (!req.session.user) {
+    return res.redirect('/login');
+  }
+
+  res.sendFile(path.join(__dirname, 'test.html'));
+});
+
+app.post('/test', async (req, res) => {
+  if (!req.session.user) {
+    return res.status(403).send('Not logged in');
+  }
+
+  const answers = req.body.answers;
+  if (!answers || Object.keys(answers).length < 1) {
+    return res.status(400).send('At least one question must be answered.');
+  }
+
+  try {
+    const userEmail = req.session.user.email;
+
+    // you could also store these in Firestore
+    const docRef = await db.collection('results').add({
+      user: userEmail,
+      answers: answers,
+      created: new Date()
+    });
+
+    // build a prompt for AI
+    const prompt = `
+User with email ${userEmail} completed a mental health test.
+Here are their answers:
+${JSON.stringify(answers)}
+Please write a helpful mental health evaluation in 300 words, and rate these 6 skills 0-100:
+- Emotional Stability
+- Stress Resilience
+- Social Interaction
+- Motivation
+- Self-Discipline
+- Optimism
+Return only JSON: {"text": "...", "scores": [..6 numbers..]}
+`;
+
+    const hfClient = new InferenceClient(config.hf_token);
+    const aiResponse = await hfClient.textGeneration({
+      model: "mistralai/Mistral-7B-Instruct-v0.3",
+      inputs: prompt,
+      parameters: {
+        max_new_tokens: 500
+      }
+    });
+
+    let aiResult;
+    try {
+      aiResult = JSON.parse(aiResponse.generated_text);
+    } catch {
+      aiResult = {
+        text: "AI evaluation not available.",
+        scores: [50,50,50,50,50,50]
+      };
+    }
+
+    // store result
+    await docRef.update({
+      evaluation: aiResult.text,
+      scores: aiResult.scores
+    });
+
+    res.json({
+      evaluation: aiResult.text,
+      scores: aiResult.scores
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error evaluating');
+  }
+});
+
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
 });

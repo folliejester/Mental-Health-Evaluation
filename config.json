@@ -1,5 +1,6 @@
 {
     "port": 3000,
     "recaptcha_site_key": "6Leg9HgrAAAAAJcPSWr8sNrobVZZpxwWjuRjpEy-",
-    "recaptcha_secret_key": "6Leg9HgrAAAAAP3YjmkJ1Y6LFoZxwTrItT17AAwN"
+    "recaptcha_secret_key": "6Leg9HgrAAAAAP3YjmkJ1Y6LFoZxwTrItT17AAwN",
+    "hugging_face_key": "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"
 }
