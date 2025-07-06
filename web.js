@@ -110,14 +110,14 @@ app.get('/admin', (req, res) => {
   if (req.session.user && req.session.user.email === 'admin@rxo.me') {
     res.sendFile(path.join(__dirname, 'admin.html'));
   } else {
-    res.status(403).send('Forbidden');
+    res.redirect('/login');
   }
 });
 
 // API to get questions
 app.get('/api/questions', async (req, res) => {
   if (!req.session.user || req.session.user.email !== 'admin@rxo.me') {
-    return res.status(403).send('Forbidden');
+    res.redirect('/login');
   }
   try {
     const snapshot = await db.collection('questions').get();
@@ -189,7 +189,7 @@ app.post('/api/questions/delete', async (req, res) => {
 // get users list
 app.get('/api/users', async (req, res) => {
   if (!req.session.user || req.session.user.email !== 'admin@rxo.me') {
-    return res.status(403).send('Forbidden');
+    return res.redirect('/login');
   }
   try {
     const listUsers = await admin.auth().listUsers(1000); // max 1000
@@ -261,7 +261,7 @@ app.post('/api/questions/import', async (req, res) => {
 
 app.get('/api/users', async (req, res) => {
   if (!req.session.user || req.session.user.email !== 'admin@rxo.me') {
-    return res.status(403).send('Forbidden');
+    return res.redirect('/login');
   }
   try {
     const listUsers = await admin.auth().listUsers(1000);
@@ -380,25 +380,10 @@ app.post('/test', async (req, res) => {
     // create concise prompt for AI
     const summarizedAnswers = Object.entries(answers).slice(0, 30).map(([k,v]) => `${k}: ${v}`).join(", ");
     const prompt = `
-You are a mental health evaluation assistant. A user has finished a psychological test with the following summarized answers:
+I just finished a mental health assessment. Top answers:
 ${summarizedAnswers}
- 
-Please provide an encouraging, supportive, and *second-person* style evaluation for the user (speaking directly to them as "you"). Then, rate these 6 skills from 0–100:
-- Emotional Stability
-- Stress Resilience
-- Social Interaction
-- Motivation
-- Self-Discipline
-- Optimism
-
-Return strictly valid JSON only, with this structure:
-{
-  "text": "second-person, helpful, about 300 words, no numeric scores inside the text",
-  "scores": [emotional, stress, social, motivation, discipline, optimism]
-}
+Write me a paragraph on my mental and psychological health evaluation discussing the problems if any and it's solutions in around 300 words.
 `;
-
-
 
     const hfClient = new InferenceClient(config.hugging_face_key);
     const aiResponse = await hfClient.chatCompletion({
@@ -407,7 +392,7 @@ Return strictly valid JSON only, with this structure:
   messages: [
     {
       role: "system",
-      content: "You are a mental health evaluation assistant."
+      content: "Mental and psychological health evaluation"
     },
     {
       role: "user",
@@ -416,35 +401,15 @@ Return strictly valid JSON only, with this structure:
   ]
 });
 
-let aiResult;
-try {
-  aiResult = JSON.parse(aiResponse.generated_text);
-  if (!aiResult.text) {
-    throw new Error("AI JSON missing text");
-  }
-} catch (e) {
-  console.error("AI returned invalid JSON", aiResponse.generated_text);
-  aiResult = {
-    text: "AI evaluation not available."
-  };
-}
+const evaluationText = aiResponse.choices[0].message.content;
 
-if (!aiResult || !Array.isArray(aiResult.scores) || aiResult.scores.length !== 6) {
-  aiResult = {
-    text: "Your answers have been received. A more detailed evaluation will follow shortly.",
-    scores: [50, 50, 50, 50, 50, 50]
-  };
-}
-
-    // store evaluation and scores
+// store evaluation and scores
     await docRef.update({
-      evaluation: aiResult.text,
-      scores: aiResult.scores
+      evaluation: evaluationText
     });
 
     res.json({
-      evaluation: aiResult.text,
-      scores: aiResult.scores
+      evaluation: evaluationText
     });
 
   } catch (err) {
@@ -471,6 +436,25 @@ app.get('/test', (req,res)=>{
   res.sendFile(path.join(__dirname,'test.html'));
 });
 
+app.get('/logout', (req, res) => {
+  req.session.destroy(() => {
+    res.redirect('/login');
+  });
+});
+
+app.get('/api/stats', async (req, res) => {
+  if (!req.session.user || req.session.user.email !== 'admin@rxo.me') {
+    return res.status(403).send('Forbidden');
+  }
+  try {
+    const snapshot = await db.collection('results').get();
+    const totalAttempts = snapshot.size;
+    res.json({ totalAttempts });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);

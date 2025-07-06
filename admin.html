@@ -721,6 +721,12 @@ async function loadDashboard() {
     document.getElementById("firestore-status").textContent = "Error connecting";
   }
 }
+fetch('/api/stats')
+  .then(response => response.json())
+  .then(data => {
+    document.getElementById('total-attempts').textContent = data.totalAttempts;
+  })
+  .catch(err => console.error(err));
 
   </script>
 </body>

@@ -71,9 +71,7 @@
       padding:20px;
       text-align:center;
     }
-    canvas { max-width: 400px; margin: 20px auto; }
   </style>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
   <div id="progress-container">
@@ -89,7 +87,6 @@
   <div id="result" style="display:none;">
     <h2>Evaluation</h2>
     <p id="evalText"></p>
-    <canvas id="chart"></canvas>
     <div>
       <button onclick="location.href='/test'">Retake Test</button>
       <button onclick="window.location.href='/logout'">Logout</button>
@@ -143,22 +140,6 @@
       document.getElementById("test-form").style.display = "none";
       document.getElementById("result").style.display = "block";
       document.getElementById("evalText").innerText = data.evaluation;
-      new Chart(document.getElementById("chart"),{
-        type:"radar",
-        data:{
-          labels:["Emotional Stability","Stress Resilience","Social Interaction","Motivation","Self-Discipline","Optimism"],
-          datasets:[{
-            label:"Your Profile",
-            data:data.scores,
-            fill:true,
-            backgroundColor:"rgba(74,144,226,0.3)",
-            borderColor:"#4a90e2"
-          }]
-        },
-        options:{
-          scales:{r:{min:0,max:100}}
-        }
-      });
     });
   </script>
 </body>
