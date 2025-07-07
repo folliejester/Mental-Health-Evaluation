@@ -812,7 +812,7 @@ function goReportPage(p){
 
 async function viewReport(uid) {
   try {
-    const res = await fetch(`/api/evaluations/${uid}`);
+    const res = await fetch(`/api/reports/${uid}`);
     const data = await res.json();
     let html = `
       <h3>Report for ${data.name}</h3>
@@ -821,14 +821,18 @@ async function viewReport(uid) {
       <p><strong>Feedback:</strong> ${data.feedback || 'No feedback given'}</p>
       <hr>
     `;
-    data.answers.filter(a => a.selected).forEach((q, idx) => {
-      html += `
-        <div style="margin-bottom:10px;">
-          <strong>${idx+1}. ${q.text}</strong><br>
-          <span style="background:#f0f0f0;padding:5px;border-radius:4px;">${q.selected}</span>
-        </div>
-      `;
-    });
+    if (data.answers && Array.isArray(data.answers)) {
+      data.answers.filter(a => a.selected).forEach((q, idx) => {
+        html += `
+          <div style="margin-bottom:10px;">
+            <strong>${idx+1}. ${q.text}</strong><br>
+            <span style="background:#f0f0f0;padding:5px;border-radius:4px;">${q.selected}</span>
+          </div>
+        `;
+      });
+    } else {
+      html += `<p>No answers available.</p>`;
+    }
     document.getElementById("report-modal-body").innerHTML = html;
     document.getElementById("report-modal").style.display = "block";
   } catch(err) {
@@ -836,6 +840,11 @@ async function viewReport(uid) {
     console.error(err);
   }
 }
+function closeReportModal() {
+  document.getElementById("report-modal").style.display = "none";
+  document.getElementById("report-backdrop").style.display = "none";
+}
+
 
   </script>
 </body>

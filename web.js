@@ -488,15 +488,18 @@ app.get('/api/feedback', async (req, res) => {
   }
 });
 
-app.get('/api/evaluations/:uid', async (req,res)=>{
+app.get('/api/reports/:uid', async (req,res)=>{
   const uid = req.params.uid;
-  const user = await db.collection('users').doc(uid).get();
-  const userData = user.data();
-  const answers = await db.collection('answers')
+  const userDoc = await db.collection('users').doc(uid).get();
+  if (!userDoc.exists) {
+    return res.status(404).json({error: 'User not found'});
+  }
+  const userData = userDoc.data();
+  const answersSnap = await db.collection('answers')
     .where('uid','==',uid)
     .where('answer','!=',null)
     .get();
-  const answersArr = answers.docs.map(doc=>({
+  const answersArr = answersSnap.docs.map(doc=>({
     question: doc.data().question,
     answer: doc.data().answer
   }));
@@ -504,6 +507,7 @@ app.get('/api/evaluations/:uid', async (req,res)=>{
   const evaluation = userData.evaluation || null;
   res.json({evaluation, feedback, answers: answersArr});
 });
+
 
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
