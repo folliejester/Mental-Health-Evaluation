@@ -342,11 +342,11 @@ app.get('/api/questions', async (req,res)=>{
     res.status(500).send("Error loading questions");
   }
 });
+
 app.get('/test', (req, res) => {
   if (!isAuthenticated(req)) {
     return res.redirect('/login');
   }
-
   res.sendFile(path.join(__dirname, 'test.html'));
 });
 
