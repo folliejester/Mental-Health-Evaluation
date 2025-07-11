@@ -788,7 +788,7 @@ function renderReports(){
       <td style="padding:8px;border:1px solid #ddd;">${u.name}</td>
       <td style="padding:8px;border:1px solid #ddd;">${u.email}</td>
       <td style="padding:8px;border:1px solid #ddd;">
-        <button class="button" onclick="viewReport('${u.uid}')">View</button>
+        <button class="button" onclick="viewReport('${u.email}')">View</button>
       </td>
     </tr>
   `).join("");
@@ -810,36 +810,48 @@ function goReportPage(p){
   renderReports();
 }
 
-async function viewReport(uid) {
+async function viewReport(email) {
   try {
-    const res = await fetch(`/api/reports/${uid}`);
+    const res = await fetch(`/api/reports/${encodeURIComponent(email)}`);
     const data = await res.json();
+    console.log("Fetched report data:", data);
+
+
     let html = `
-      <h3>Report for ${data.name}</h3>
-      <p><strong>Email:</strong> ${data.email}</p>
-      <p><strong>Rating:</strong> ${data.rating || 'No rating given'}</p>
-      <p><strong>Feedback:</strong> ${data.feedback || 'No feedback given'}</p>
-      <hr>
+      <h3>Report for ${data.user || email}</h3>
+      <p><strong>Email:</strong> ${data.user || email}</p>
+      <p><strong>Created:</strong> ${data.created ? new Date(data.created._seconds * 1000).toLocaleString() : 'Unknown'}</p>
+      <p><strong>Evaluation:</strong></p>
+      <div style="background:#f8f8f8;padding:10px;border-radius:5px;margin-bottom:15px;">${data.evaluation || 'No evaluation provided'}</div>
+      <h4>Answers:</h4>
     `;
-    if (data.answers && Array.isArray(data.answers)) {
-      data.answers.filter(a => a.selected).forEach((q, idx) => {
-        html += `
-          <div style="margin-bottom:10px;">
-            <strong>${idx+1}. ${q.text}</strong><br>
-            <span style="background:#f0f0f0;padding:5px;border-radius:4px;">${q.selected}</span>
-          </div>
-        `;
-      });
+
+    if (data.answers && typeof data.answers === 'object') {
+      const entries = Object.entries(data.answers);
+      if (entries.length > 0) {
+        entries.forEach(([key, value], idx) => {
+          html += `
+            <div style="margin-bottom:10px;">
+              <strong>${key}</strong>: <span style="background:#f0f0f0;padding:5px;border-radius:4px;">${value}</span>
+            </div>
+          `;
+        });
+      } else {
+        html += `<p>No answers provided.</p>`;
+      }
     } else {
       html += `<p>No answers available.</p>`;
     }
-    document.getElementById("report-modal-body").innerHTML = html;
+
+    document.getElementById("report-content").innerHTML = html;
     document.getElementById("report-modal").style.display = "block";
-  } catch(err) {
+    document.getElementById("report-backdrop").style.display = "block";
+  } catch (err) {
     alert("Could not load report");
     console.error(err);
   }
 }
+
 function closeReportModal() {
   document.getElementById("report-modal").style.display = "none";
   document.getElementById("report-backdrop").style.display = "none";

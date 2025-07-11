@@ -362,7 +362,22 @@ app.post('/test', async (req, res) => {
     return res.status(403).send('Not logged in');
   }
 
-  const answers = req.body.answers;
+  const rawAnswers = req.body.answers;
+const questionsSnap = await db.collection('questions').get();
+const questionList = [];
+questionsSnap.forEach(doc => {
+  questionList.push(doc.data().text);
+});
+
+const answers = {};
+Object.keys(rawAnswers).forEach((key, idx) => {
+  const qIndex = parseInt(key.replace('q', ''));
+  const questionText = questionList[qIndex];
+  if (questionText) {
+    answers[questionText] = rawAnswers[key];
+  }
+});
+
   if (!answers || Object.keys(answers).length < 1) {
     return res.status(400).send('At least one question must be answered.');
   }
@@ -370,15 +385,16 @@ app.post('/test', async (req, res) => {
   try {
     const userEmail = req.session.user.email;
 
-    // store answers initially
-    const docRef = await db.collection('results').add({
+    // Save or replace by using email as document ID
+    const docRef = db.collection('results').doc(userEmail);
+
+    await docRef.set({
       user: userEmail,
       answers,
       created: new Date()
     });
 
-    // create concise prompt for AI
-    const summarizedAnswers = Object.entries(answers).slice(0, 30).map(([k,v]) => `${k}: ${v}`).join(", ");
+    const summarizedAnswers = Object.entries(answers).slice(0, 30).map(([k, v]) => `${k}: ${v}`).join(", ");
     const prompt = `
 I just finished a mental health assessment. Top answers:
 ${summarizedAnswers}
@@ -387,36 +403,27 @@ Write me a paragraph on my mental and psychological health evaluation discussing
 
     const hfClient = new InferenceClient(config.hugging_face_key);
     const aiResponse = await hfClient.chatCompletion({
-  model: "mistralai/Mistral-7B-Instruct-v0.3",
-  provider: "novita",
-  messages: [
-    {
-      role: "system",
-      content: "Mental and psychological health evaluation"
-    },
-    {
-      role: "user",
-      content: prompt
-    }
-  ]
-});
-
-const evaluationText = aiResponse.choices[0].message.content;
-
-// store evaluation and scores
-    await docRef.update({
-      evaluation: evaluationText
+      model: "mistralai/Mistral-7B-Instruct-v0.3",
+      provider: "novita",
+      messages: [
+        { role: "system", content: "Mental and psychological health evaluation" },
+        { role: "user", content: prompt }
+      ]
     });
 
-    res.json({
-      evaluation: evaluationText
-    });
+    const evaluationText = aiResponse.choices[0].message.content;
+
+    // Update the same document with evaluation
+    await docRef.update({ evaluation: evaluationText });
+
+    res.json({ evaluation: evaluationText });
 
   } catch (err) {
     console.error(err);
     res.status(500).send('Error evaluating');
   }
 });
+
 
 app.get('/api/questions-user', async (req,res)=>{
   try{
@@ -488,25 +495,32 @@ app.get('/api/feedback', async (req, res) => {
   }
 });
 
-app.get('/api/reports/:uid', async (req,res)=>{
-  const uid = req.params.uid;
-  const userDoc = await db.collection('users').doc(uid).get();
-  if (!userDoc.exists) {
-    return res.status(404).json({error: 'User not found'});
+app.get('/api/reports/:email', async (req, res) => {
+  const { email } = req.params;
+  try {
+    const docRef = db.collection('results').doc(email);
+    const snapshot = await docRef.get();
+
+    if (!snapshot.exists) {
+      return res.status(404).send("Report not found");
+    }
+
+    const data = snapshot.data();
+
+    res.json({
+      email,
+      name: data.name || '',
+      rating: data.rating || '',
+      feedback: data.feedback || '',
+      evaluation: data.evaluation || '',
+      answers: data.answers || []
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Server error");
   }
-  const userData = userDoc.data();
-  const answersSnap = await db.collection('answers')
-    .where('uid','==',uid)
-    .where('answer','!=',null)
-    .get();
-  const answersArr = answersSnap.docs.map(doc=>({
-    question: doc.data().question,
-    answer: doc.data().answer
-  }));
-  const feedback = userData.feedback || null;
-  const evaluation = userData.evaluation || null;
-  res.json({evaluation, feedback, answers: answersArr});
 });
+
 
 
 app.listen(port, () => {
