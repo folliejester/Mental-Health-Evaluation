@@ -98,7 +98,7 @@ app.post('/signup', async (req, res) => {
     });
 
     console.log(`Firebase user created: ${userRecord.uid}`);
-    res.send(`Signup successful! Welcome, ${name}`);
+    res.redirect('/test');
   } catch (err) {
     console.error(err);
     res.status(500).send(`Error: ${err.message}`);
