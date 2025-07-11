@@ -283,20 +283,10 @@ async function loadUsers(){
       <td>${u.displayName}</td>
       <td>${u.admin ? 'Yes' : 'No'}</td>
       <td>
-        ${!u.admin ? `<button class="button" onclick="promoteUser('${u.uid}')">Promote</button>` : ''}
         <button class="button" onclick="deleteUser('${u.uid}')">Delete</button>
       </td>
     </tr>
   `).join("");
-}
-
-async function promoteUser(uid){
-  if(!confirm("Make this user admin?")) return;
-  await fetch('/api/users/promote', {
-    method: "POST", headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({ uid })
-  });
-  loadUsers();
 }
 
 async function deleteUser(uid){

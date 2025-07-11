@@ -29,6 +29,14 @@ app.use(session({
   saveUninitialized: false
 }));
 
+function isAdmin(req) {
+  return req.session.user && config.admin_emails.includes(req.session.user.email);
+}
+
+function isAuthenticated(req) {
+  return req.session.user;
+}
+
 // serve static files
 app.use(express.static(__dirname));
 
@@ -60,7 +68,7 @@ app.post('/login', async (req, res) => {
     // simple session auth for demo
     req.session.user = { email };
 
-    if (email === 'admin@rxo.me') {
+    if (config.admin_emails.includes(email)) {
       return res.redirect('/admin');
     } else {
       return res.redirect('/test');
@@ -107,7 +115,7 @@ app.post('/signup', async (req, res) => {
 
 // admin panel protected
 app.get('/admin', (req, res) => {
-  if (req.session.user && req.session.user.email === 'admin@rxo.me') {
+  if (req.session.user && config.admin_emails.includes(req.session.user.email)) {
     res.sendFile(path.join(__dirname, 'admin.html'));
   } else {
     res.redirect('/login');
@@ -116,7 +124,7 @@ app.get('/admin', (req, res) => {
 
 // API to get questions
 app.get('/api/questions', async (req, res) => {
-  if (!req.session.user || req.session.user.email !== 'admin@rxo.me') {
+  if (!isAdmin(req)) {
     res.redirect('/login');
   }
   try {
@@ -134,7 +142,7 @@ app.get('/api/questions', async (req, res) => {
 
 // add question
 app.post('/api/questions/add', async (req, res) => {
-  if (!req.session.user || req.session.user.email !== 'admin@rxo.me') {
+  if (!isAdmin(req)) {
     return res.status(403).send('Forbidden');
   }
   const { text, options } = req.body;
@@ -156,7 +164,7 @@ app.post('/api/questions/add', async (req, res) => {
 
 // update question
 app.post('/api/questions/update', async (req, res) => {
-  if (!req.session.user || req.session.user.email !== 'admin@rxo.me') {
+  if (!isAdmin(req)) {
     return res.status(403).send('Forbidden');
   }
   const { id, text, options } = req.body;
@@ -171,7 +179,7 @@ app.post('/api/questions/update', async (req, res) => {
 
 // bulk delete
 app.post('/api/questions/delete', async (req, res) => {
-  if (!req.session.user || req.session.user.email !== 'admin@rxo.me') {
+  if (!isAdmin(req)) {
     return res.status(403).send('Forbidden');
   }
   const { ids } = req.body;
@@ -188,7 +196,7 @@ app.post('/api/questions/delete', async (req, res) => {
 
 // get users list
 app.get('/api/users', async (req, res) => {
-  if (!req.session.user || req.session.user.email !== 'admin@rxo.me') {
+  if (!isAdmin(req)) {
     return res.redirect('/login');
   }
   try {
@@ -208,7 +216,7 @@ app.get('/api/users', async (req, res) => {
 
 // delete user
 app.post('/api/users/delete', async (req, res) => {
-  if (!req.session.user || req.session.user.email !== 'admin@rxo.me') {
+  if (!isAdmin(req)) {
     return res.status(403).send('Forbidden');
   }
   const { uid } = req.body;
@@ -221,23 +229,8 @@ app.post('/api/users/delete', async (req, res) => {
   }
 });
 
-// promote to admin
-app.post('/api/users/promote', async (req, res) => {
-  if (!req.session.user || req.session.user.email !== 'admin@rxo.me') {
-    return res.status(403).send('Forbidden');
-  }
-  const { uid } = req.body;
-  try {
-    await admin.auth().setCustomUserClaims(uid, { admin: true });
-    res.json({ success: true });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Promote failed' });
-  }
-});
-
 app.post('/api/questions/import', async (req, res) => {
-  if (!req.session.user || req.session.user.email !== 'admin@rxo.me') {
+  if (!isAdmin(req)) {
     return res.status(403).send('Forbidden');
   }
   try {
@@ -260,7 +253,7 @@ app.post('/api/questions/import', async (req, res) => {
 });
 
 app.get('/api/users', async (req, res) => {
-  if (!req.session.user || req.session.user.email !== 'admin@rxo.me') {
+  if (!isAdmin(req)) {
     return res.redirect('/login');
   }
   try {
@@ -313,7 +306,7 @@ app.post('/api/users/disable', async (req, res) => {
 });
 
 app.post('/api/users/add', async (req, res) => {
-  if (!req.session.user || req.session.user.email !== 'admin@rxo.me') {
+  if (!isAdmin(req)) {
     return res.status(403).send('Forbidden');
   }
   const { name, email, password, role } = req.body;
@@ -350,7 +343,7 @@ app.get('/api/questions', async (req,res)=>{
   }
 });
 app.get('/test', (req, res) => {
-  if (!req.session.user) {
+  if (!isAuthenticated(req)) {
     return res.redirect('/login');
   }
 
@@ -358,7 +351,7 @@ app.get('/test', (req, res) => {
 });
 
 app.post('/test', async (req, res) => {
-  if (!req.session.user) {
+  if (!isAuthenticated(req)) {
     return res.status(403).send('Not logged in');
   }
 
@@ -450,7 +443,7 @@ app.get('/logout', (req, res) => {
 });
 
 app.get('/api/stats', async (req, res) => {
-  if (!req.session.user || req.session.user.email !== 'admin@rxo.me') {
+  if (!isAdmin(req)) {
     return res.status(403).send('Forbidden');
   }
   try {
@@ -466,7 +459,7 @@ app.get('/api/stats', async (req, res) => {
 app.post('/api/feedback', async (req, res) => {
   try {
     const { rating, feedback } = req.body;
-    if (!req.session.user) return res.status(403).send("Not logged in");
+    if (!isAuthenticated(req)) return res.status(403).send("Not logged in");
 
     await db.collection("feedback").add({
       user: req.session.user.email,

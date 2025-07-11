@@ -6,6 +6,9 @@ config.json
 fbadmin.json
 todo.txt
 test.html
+fbadmin.json
+package-lock.json
+try.html
 
 # Logs
 npm-debug.log
