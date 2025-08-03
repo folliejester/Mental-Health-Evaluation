@@ -1,5 +1,0 @@
-google:
-recaptcha keys
-firebase api keys -> create authentication and enable email verify
-hugging face -> create acc > settings > access token
-firestore db > index > Collection ID: answers | Fields: Field: uid, Direction: Ascending | Field: answer, Direction: Ascending | rest default
